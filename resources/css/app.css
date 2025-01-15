@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@font-face {
+    font-family: 'Montserrat';
+    src: url('/fonts/Montserrat-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Tambahkan animasi smooth scroll untuk arrow */
+@keyframes arrowAnimation {
+    0% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(15px);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+.arrow-icon {
+    animation: arrowAnimation 1.5s infinite ease-in-out;
+}
+
+/* Tambahan untuk smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
