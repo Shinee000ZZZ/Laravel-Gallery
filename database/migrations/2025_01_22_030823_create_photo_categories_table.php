@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('photo_categories', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('photo_id');
-            $table->unsignedBigInteger('category_id');
+            $table->foreignId('photo_id')->constrained('photos', 'photo_id')->onDelete('cascade');
+            $table->foreignId('category_id')->constrained('categories', 'id')->onDelete('cascade');
             $table->timestamps();
         });
     }
