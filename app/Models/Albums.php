@@ -14,6 +14,7 @@ class Albums extends Model
         'description',
         'created_at',
         'user_id',
+        'cover'
     ];
 
     public function user(): BelongsTo

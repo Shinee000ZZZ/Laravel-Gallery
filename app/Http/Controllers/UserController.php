@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Models\Albums;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
@@ -26,15 +28,48 @@ class UserController extends Controller
     public function profile()
     {
         $user = Auth::user();
-        $photos = Photos::where('user_id', $user->id)->get();
-        return view('user.profile', compact('user', 'photos'));
+        $photos = Photos::where('user_id', Auth::id())->get();
+        $albums = Albums::where('user_id', Auth::id())->get();
+        return view('user.profile', compact('user', 'photos', 'albums'));
     }
+
 
     public function upload()
     {
         $user = Auth::user();
         return view('user.upload', compact('user'));
     }
+
+
+    public function storeAlbums(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'cover' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10048',
+        ]);
+
+        try {
+            if ($request->hasFile('cover')) {
+                $cover = $request->file('cover')->store('covers', 'public');
+            } else {
+                $cover = null;
+            }
+
+            Albums::create([
+                'title' => $request->title,
+                'description' => $request->description,
+                'cover' => $cover,
+                'user_id' => Auth::id(),
+            ]);
+
+            return redirect('user.profile');
+        } catch (\Exception $e) {
+            Log::error('Error saat menyimpan album: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal menambahkan album!');
+        }
+    }
+
 
     public function store(Request $request)
     {

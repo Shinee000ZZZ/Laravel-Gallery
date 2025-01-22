@@ -19,6 +19,8 @@ Route::get('/upload', [UserController::class, 'upload'])->name('upload');
 
 Route::post('/photos/store', [UserController::class, 'store'])->name('photos.store');
 
+Route::post('/albums/store', [UserController::class, 'storeAlbums'])->name('albums.store');
+
 Route::get('/admin', [AdminController::class, 'index'])->name('admin.index');
 
 // Route untuk registrasi

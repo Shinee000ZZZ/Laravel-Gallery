@@ -17,7 +17,7 @@
     <nav class="bg-white border-gray-200 dark:bg-gray-900 fixed top-0 left-0 w-full z-40 shadow font-monsterrat">
         <div class="max-w-screen-xl flex items-center justify-between mx-auto p-4">
             <!-- Logo -->
-            <a href="#" class="group flex items-center space-x-3 rtl:space-x-reverse">
+            <a href="#home" class="group flex items-center space-x-3 rtl:space-x-reverse">
                 <img src="/storage/galerizzicon.png" class="h-8" alt="galerizz Logo" />
                 <span class="self-center text-2xl font-bold whitespace-nowrap text-black">Gale<span
                         class="group-hover:text-blue-400 transition-colors duration-200 ease-in-out">Rizz</span></span>
