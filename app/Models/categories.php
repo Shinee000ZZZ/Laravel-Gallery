@@ -12,11 +12,17 @@ class categories extends Model
         'id',
         'name',
         'description',
+        'user_id',
         'created_at',
     ];
 
     public function photo_category()
     {
         return $this->hasMany(photo_category::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

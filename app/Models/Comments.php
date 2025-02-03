@@ -15,11 +15,11 @@ class Comments extends Model
         'photo_id',
     ];
 
-    public function users(): BelongsTo{
-        return $this->belongsTo(User::class);
+    public function user(): BelongsTo{
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function photos(): BelongsTo{
-        return $this->belongsTo(Photos::class);
+        return $this->belongsTo(Photos::class, 'photo_id');
     }
 }

@@ -22,8 +22,11 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
-                monsterrat: ['Montserrat',],
+                monsterrat: ['Montserrat', 'sans-serif'],
             },
+            animation: {
+                spin: 'spin 1s linear infinite',
+            }
         },
     },
     plugins: [

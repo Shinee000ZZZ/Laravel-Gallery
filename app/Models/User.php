@@ -24,27 +24,38 @@ class User extends Authenticatable
         'username',
         'password',
         'email',
-        'access_level',
+        'acess_level',
+        'profile_photo',
         'created_at',
+        'updated_at'
     ];
 
     protected $primaryKey = 'user_id';
 
     public $timestamps = false;
 
-    public function albums(): HasMany{
-        return $this->hasMany(Albums::class);
+    public function albums(): HasMany
+    {
+        return $this->hasMany(Albums::class, 'user_id');
     }
 
-    public function photos(): hasMany{
-        return $this->hasMany(Photos::class);
+    public function photos(): hasMany
+    {
+        return $this->hasMany(Photos::class, 'user_id');
     }
 
-    public function comments(): hasMany{
+    public function totalLikes()
+    {
+        return $this->photos()->withCount('likes')->get()->sum('likes_count');
+    }
+
+    public function comments(): hasMany
+    {
         return $this->hasMany(Comments::class);
     }
 
-    public function likes(): hasMany{
+    public function likes(): hasMany
+    {
         return $this->hasMany(Likes::class);
     }
 

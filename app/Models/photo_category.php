@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class photo_category extends Model
 {
-    protected $table = 'photo_category';
+    protected $table = 'photo_categories';
+
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'photo_id',
@@ -21,6 +23,6 @@ class photo_category extends Model
 
     public function category()
     {
-        return $this->belongsTo(categories::class);
+        return $this->belongsTo(categories::class, 'category_id');
     }
 }

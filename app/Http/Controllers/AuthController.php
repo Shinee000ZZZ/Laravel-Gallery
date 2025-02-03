@@ -6,68 +6,101 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
-    // Menangani proses registrasi
     public function register(Request $request)
     {
-        // Validasi inputan
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'username' => 'required|string|max:255|unique:users',
-            'email' => 'required|string|email|max:255|unique:users',
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8',
+        ], [
+            'username.unique' => 'Username sudah terdaftar.',
+            'email.unique' => 'Email sudah terdaftar.',
+            'password.min' => 'Password minimal 8 karakter.',
         ]);
 
-        // Buat user baru
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
         $user = User::create([
-            'name' => $validated['name'],
-            'username' => $validated['username'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
+            'name' => $request->name,
+            'username' => $request->username,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
         ]);
 
-        return redirect()->route('welcome');
+        return redirect()->route('welcome')->with('success', 'Registrasi berhasil!');
     }
-
-    // Menangani proses login
 
     public function login(Request $request)
     {
-        // Validasi inputan
-        $credentials = $request->validate([
-            'email' => 'required|string|email|max:255',
-            'username' => 'required|string|max:255',
+        $validator = Validator::make($request->all(), [
+            'login' => 'required|string|max:255',
             'password' => 'required|string|min:8',
+        ], [
+            'login.required' => 'Username atau email harus diisi.',
+            'login.max' => 'Username atau email terlalu panjang.',
+            'password.required' => 'Password harus diisi.',
+            'password.min' => 'Password minimal 8 karakter.',
+
         ]);
 
-        // Cek apakah login valid
-        if (Auth::attempt($credentials)) {
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        // Cek apakah inputan adalah email atau username
+        $loginField = filter_var($request->login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+        // Cek apakah user dengan username/email tersebut ada
+        $user = User::where($loginField, $request->login)->first();
+
+        if (!$user) {
+            return back()
+                ->withErrors(['login' => 'Username atau email tidak ditemukan.'])
+                ->withInput();
+        }
+
+        // Cek password
+        if (!Hash::check($request->password, $user->password)) {
+            return back()
+                ->withErrors(['password' => 'Password salah.'])
+                ->withInput();
+        }
+
+        // Lakukan autentikasi
+        if (Auth::attempt([$loginField => $request->login, 'password' => $request->password])) {
             $request->session()->regenerate();
 
-            // Ambil user yang sedang login
-            $user = Auth::user();
-
-            // Cek access_level dan redirect sesuai role
+            // Cek acess level
             if ($user->acess_level === 'admin') {
-                return redirect()->route('admin.index');  // Redirect ke admin dashboard
+                return redirect()->route('admin.index');
             } elseif ($user->acess_level === 'user') {
-                return redirect()->route('user.index');   // Redirect ke user dashboard
+                return redirect()->route('user.index');
             } else {
-                Auth::logout();  // Logout jika access_level tidak sesuai
-                return back()->withErrors([
-                    'email' => 'Akun tidak memiliki akses yang valid.',
-                ]);
+                Auth::logout();
+                return back()
+                    ->withErrors(['login' => 'Akun tidak memiliki akses yang valid.'])
+                    ->withInput();
             }
         }
 
-        return back()->withErrors([
-            'email' => 'Email atau password salah.',
-        ]);
+        return back()
+            ->withErrors(['password' => 'Login gagal.'])
+            ->withInput();
     }
 
-    public function logout(){
+    public function logout()
+    {
         Auth::logout();
         return redirect()->route('welcome');
     }

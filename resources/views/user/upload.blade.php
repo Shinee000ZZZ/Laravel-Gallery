@@ -10,68 +10,31 @@
     <script src="https://unpkg.com/boxicons@2.1.4/dist/boxicons.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <style>
+        #tagContainer label {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.875rem;
+            transition: all 0.2s ease-in-out;
+        }
+
+        #tagContainer label:hover {
+            background-color: #cce4ff;
+            border-color: #007bff;
+        }
+
+        #tagContainer input:checked+span {
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+
 </head>
 
-<body class="bg-gray-100">
+<body class="bg-gray-100 font-monsterrat">
 
-    {{-- navbar --}}
-    <nav class="bg-white border-gray-200 dark:bg-gray-900">
-        <div class="max-w-screen-xl mx-auto p-4">
-            <div class="flex justify-between items-center">
-                <a href="{{ Route('user.index') }}" class="group flex items-center space-x-3 rtl:space-x-reverse">
-                    <img src="/storage/galerizzicon.png" class="h-8" alt="galerizz Logo" />
-                    <span class="self-center text-2xl font-bold whitespace-nowrap text-black">Gale<span
-                            class="group-hover:text-blue-400 transition-colors duration-200 ease-in-out">rizz</span></span>
-                </a>
-
-                <div class="flex items-center space-x-3 md:order-2">
-                    <!-- Dropdown Menu User -->
-                    <button type="button"
-                        class="flex text-sm bg-gray-800 border border-blue-600 rounded-full md:me-0 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
-                        id="user-menu-button" aria-expanded="false" data-dropdown-toggle="user-dropdown"
-                        data-dropdown-placement="bottom">
-                        <span class="sr-only">Open user menu</span>
-                        <img class="w-8 h-8 rounded-full" src=" {{ asset('storage/' . $user->profile_photo) }}"
-                            alt="user photo">
-                    </button>
-
-                    <!-- Dropdown menu -->
-                    <div class="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow-lg dark:bg-gray-700 dark:divide-gray-600 focus:ring-4 focus:ring-blue-500"
-                        id="user-dropdown">
-                        <div class="px-4 py-3">
-                            <span class="block text-sm text-gray-900 dark:text-white">{{ $user->username }}</span>
-                            <span
-                                class="block text-sm text-gray-500 truncate dark:text-gray-400">{{ $user->email }}</span>
-                        </div>
-                        <ul class="py-2" aria-labelledby="user-menu-button">
-                            <li>
-                                <a href="{{ Route('profile') }}"
-                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Profile</a>
-                            </li>
-                            <li>
-                                <a href="{{ route('logout') }}"
-                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Sign
-                                    out</a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Search Bar untuk Desktop -->
-                <div class="hidden md:flex flex-grow items-center mx-4">
-                    <input type="text" id="search"
-                        class="w-full px-4 py-2 text-sm border border-gray-300 rounded-full focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:focus:ring-blue-500 dark:focus:border-blue-500 cursor-not-allowed"
-                        placeholder="Search..." disabled>
-
-                    <!-- Tombol Upload -->
-                    <a href="{{ Route('upload') }}"
-                        class="ml-4 px-6 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-full text-sm font-medium">
-                        Upload
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    @include('components.navbar-upload')
 
     <!-- Content -->
     <div class="max-w-screen-xl mx-auto p-6 flex space-x-6 mt-4">
@@ -98,17 +61,19 @@
 
         <!-- Upload Foto Form -->
         <div id="uploadPhotoForm" class="w-4/5 bg-white shadow-md rounded-lg p-6 h-[560px] overflow-y-auto">
-            <form action="{{ Route('photos.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+            <form action="{{ route('photos.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                 @csrf
                 <div class="flex flex-col items-center justify-center w-full">
                     <!-- Upload Input -->
                     <label for="photoInput"
-                        class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 relative">
-                        <!-- Preview Image -->
+                        class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 relative"
+                        ondragover="event.preventDefault(); this.classList.add('border-blue-500');"
+                        ondragleave="event.preventDefault(); this.classList.remove('border-blue-500');"
+                        ondrop="event.preventDefault(); event.stopPropagation();
+            this.classList.remove('border-blue-500');
+            handleFileDrop(event, 'photoInput', 'photoPreview', 'photoDefault');">
                         <img id="photoPreview" class="absolute w-full h-full object-contain rounded-lg hidden"
                             alt="Photo Preview">
-
-                        <!-- Default Upload Icon -->
                         <div id="photoDefault" class="flex flex-col items-center justify-center">
                             <svg class="w-8 h-8 mb-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none"
                                 viewBox="0 0 20 16">
@@ -127,11 +92,44 @@
                     class="w-full px-3 py-2 border rounded-lg focus:ring-blue-300">
                 <textarea name="description" placeholder="Deskripsi Foto"
                     class="w-full px-3 py-2 border rounded-lg focus:ring-blue-300"></textarea>
+
+                <!-- album select -->
+                <div>
+                    <label for="album_id" class="block mb-2 font-semibold">Pilih Album:</label>
+                    <select name="album_id" class="w-full px-3 py-2 border rounded-lg focus:ring-blue-300">
+                        <option value="">Pilih Album (Opsional)</option>
+                        @foreach ($albums as $album)
+                            <option value="{{ $album->album_id }}">{{ $album->title }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Multi-select untuk kategori yang sudah ada -->
+                <div>
+                    <label for="categories" class="block mb-2 font-semibold">Kategori terbaru anda:</label>
+                    <div id="tagContainer" class="flex flex-wrap gap-2">
+                        @foreach ($categories as $category)
+                            <label
+                                class="flex items-center bg-gray-100 border border-gray-300 rounded-full px-4 py-1 cursor-pointer hover:bg-blue-100">
+                                <input type="checkbox" name="categories[]" value="{{ $category->name }}" class="hidden">
+                                <span>{{ $category->name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <!-- Input kategori baru -->
+                <div>
+                    <label for="newCategory" class="block mb-2 font-semibold">Tambah Kategori Baru:</label>
+                    <input type="text" id="newCategory" name="categories[]"
+                        placeholder="Kategori Baru (Pisahkan dengan koma)"
+                        class="w-full px-3 py-2 border rounded-lg focus:ring-blue-300">
+                </div>
+
                 <button type="submit" class="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Upload
                     Foto</button>
             </form>
         </div>
-
 
         <!-- Buat Album Form -->
         <div id="uploadAlbumForm" class="w-4/5 bg-white shadow-md rounded-lg p-6 h-[560px] overflow-y-auto hidden">
@@ -145,7 +143,12 @@
                 <div class="flex flex-col items-center justify-center w-full">
                     <!-- Upload Input -->
                     <label for="albumCoverInput"
-                        class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 relative">
+                        class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 relative"
+                        ondragover="event.preventDefault(); this.classList.add('border-blue-500');"
+                        ondragleave="event.preventDefault(); this.classList.remove('border-blue-500');"
+                        ondrop="event.preventDefault(); event.stopPropagation();
+                        this.classList.remove('border-blue-500');
+                        handleFileDrop(event, 'albumCoverInput', 'albumCoverPreview', 'albumDefault');">
                         <!-- Preview Cover -->
                         <img id="albumCoverPreview" class="absolute w-full h-full object-contain rounded-lg hidden"
                             alt="Album Cover Preview">
@@ -171,6 +174,40 @@
 
     </div>
 
+    <!-- Modal Konfirmasi Kompresi -->
+    <div id="compressionModal"
+        class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center cursor-pointer"
+        onclick="event.stopPropagation()">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full" onclick="event.stopPropagation()">
+            <h2 class="text-xl font-bold mb-4">Kompresi Foto</h2>
+            <p class="mb-4">Foto Anda melebihi 2 MB. Apakah Anda ingin mengompres foto?</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="cancelUpload()"
+                    class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Batalkan</button>
+                <button onclick="confirmCompression()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kompres</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInputs = document.querySelectorAll('#photoInput, #photoUpload, #albumCoverInput');
+            fileInputs.forEach(input => {
+                input.addEventListener('change', checkImageSize);
+            });
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('type') === 'album') {
+                uploadAlbumBtn.click();
+            }
+        });
+    </script>
 
     <script>
         const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
@@ -239,6 +276,28 @@
                 reader.readAsDataURL(file);
             }
         });
+    </script>
+
+    <script>
+        function handleFileDrop(event, inputId, previewId, defaultId) {
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(previewId);
+            const defaultElement = document.getElementById(defaultId);
+
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                input.files = files;
+                const file = files[0];
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                    defaultElement.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
     </script>
 </body>
 
