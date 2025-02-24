@@ -8,6 +8,7 @@
     <title>Upload</title>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://unpkg.com/boxicons@2.1.4/dist/boxicons.js"></script>
+    <link rel="icon" href="/storage/galerizzicon.png" type="image/png" sizes="16x16">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -111,7 +112,7 @@
                         @foreach ($categories as $category)
                             <label
                                 class="flex items-center bg-gray-100 border border-gray-300 rounded-full px-4 py-1 cursor-pointer hover:bg-blue-100">
-                                <input type="checkbox" name="categories[]" value="{{ $category->name }}" class="hidden">
+                                <input type="checkbox" name="categories[]" value="{{ $category->name }}" class="hidden" autocomplete="off">
                                 <span>{{ $category->name }}</span>
                             </label>
                         @endforeach
@@ -121,7 +122,7 @@
                 <!-- Input kategori baru -->
                 <div>
                     <label for="newCategory" class="block mb-2 font-semibold">Tambah Kategori Baru:</label>
-                    <input type="text" id="newCategory" name="categories[]"
+                    <input type="text" id="newCategory" name="newCategory"
                         placeholder="Kategori Baru (Pisahkan dengan koma)"
                         class="w-full px-3 py-2 border rounded-lg focus:ring-blue-300">
                 </div>
@@ -167,7 +168,7 @@
                         <input id="albumCoverInput" type="file" name="cover" class="hidden" />
                     </label>
                 </div>
-                <button type="submit" class="px-4 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg">Buat
+                <button type="submit" class="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Buat
                     Album</button>
             </form>
         </div>
@@ -286,8 +287,16 @@
 
             const files = event.dataTransfer.files;
             if (files.length > 0) {
-                input.files = files;
                 const file = files[0];
+
+                // Gunakan cara yang sama seperti input biasa
+                input.files = files;
+
+                // Trigger event change untuk mengaktifkan fungsi checkImageSize di app.js
+                const changeEvent = new Event('change', {
+                    bubbles: true
+                });
+                input.dispatchEvent(changeEvent);
 
                 const reader = new FileReader();
                 reader.onload = (e) => {

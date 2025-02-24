@@ -8,6 +8,7 @@
     <title>{{ $profileUser->username }}'s Profile</title>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://unpkg.com/boxicons@2.1.4/dist/boxicons.js"></script>
+    <link rel="icon" href="/storage/galerizzicon.png" type="image/png" sizes="16x16">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -18,10 +19,10 @@
     @include('components.navbar')
 
     <!-- Profile Header -->
-    <div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="max-w-screen-xl mx-auto px-4 py-10">
         <div class="flex items-start gap-6">
             <!-- Profile Photo -->
-            <div class="flex-shrink-0">
+            <div class="flex-shrink-0 border border-blue-900 rounded-full">
                 <img src="{{ asset('storage/' . $profileUser->profile_photo) }}" alt="Profile Photo"
                     class="w-32 h-32 rounded-full object-cover">
             </div>

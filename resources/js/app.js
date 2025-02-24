@@ -14,45 +14,72 @@ window.addEventListener('scroll', () => {
 
 // fullpage js settings
 document.addEventListener('DOMContentLoaded', () => {
+    const navbar = document.querySelector('nav');
+
     new fullpage('#fullpage', {
         autoScrolling: true,
-        scrollHorizontally: true,
-        scrollOverflow: true,
-        anchors: ['home', 'regist',],
+        scrollingSpeed: 1000,
+        fitToSection: true,
+        fitToSectionDelay: 500,
+        anchors: ['home', 'about', 'regist'],
         menu: '#menu',
+        scrollBar: false, // Pastikan tetap false untuk smooth scroll
+        recordHistory: false,
+        touchSensitivity: 10,
+        bigSectionsDestination: 'top',
+
+        // Animasi navbar muncul/hilang dengan slide effect
+        onLeave: (origin, destination) => {
+            if (destination.index === 0) {
+                navbar.classList.remove('navbar-hidden');
+                navbar.classList.add('navbar-visible');
+            } else {
+                navbar.classList.remove('navbar-visible');
+                navbar.classList.add('navbar-hidden');
+            }
+        }
     });
 });
 
-// infinite scroll / lazy load
+// lazy loading / infinite scroll
 document.addEventListener('DOMContentLoaded', () => {
     // Fungsi untuk membuat loading indicator
     function createLoadingIndicator() {
         const indicator = document.createElement('div');
         indicator.id = 'loading-indicator';
         indicator.classList.add(
+            'masonry-loading-indicator',
             'w-full',
             'text-center',
             'text-gray-500',
             'py-4',
             'flex',
             'justify-center',
-            'items-center'
+            'items-center',
+            'absolute',
+            'left-0',
+            'right-0'
         );
         indicator.innerHTML = `
-            <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Memuat foto...
+            <div class="flex items-center">
+                <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Memuat foto...</span>
+            </div>
         `;
         return indicator;
     }
 
-    // Fungsi untuk setup infinite scroll pada container tertentu
-    function setupInfiniteScrollForContainer(containerSelector) {
+    // Fungsi untuk setup infinite scroll pada container Masonry
+    function setupMasonryInfiniteScroll(containerSelector) {
         // Selector yang lebih fleksibel untuk container foto
         const photoContainer = document.querySelector(containerSelector);
         if (!photoContainer) return;
+
+        // Pastikan container memiliki positioning relatif untuk loading indicator
+        photoContainer.classList.add('relative');
 
         let page = 1;
         let isLoading = false;
@@ -83,26 +110,26 @@ document.addEventListener('DOMContentLoaded', () => {
             page++;
 
             // Tentukan URL berdasarkan container
-        let url;
-        if (containerSelector.includes('explore')) {
-            url = `/explore?page=${page}`;
-        } else if (containerSelector.includes('profile')) {
-            url = `/profile?page=${page}`;
-        } else if (containerSelector.includes('index')) {
-            url = `/index-user?page=${page}`;
-        } else if (containerSelector.includes('othersProfile')) {
-            // Ambil username dari URL atau dari elemen di halaman
-            const username = document.querySelector('[data-username]')?.getAttribute('data-username');
-            if (username) {
-                url = `/user/${username}?page=${page}`;
+            let url;
+            if (containerSelector.includes('explore')) {
+                url = `/explore?page=${page}`;
+            } else if (containerSelector.includes('profile')) {
+                url = `/profile?page=${page}`;
+            } else if (containerSelector.includes('index')) {
+                url = `/index-user?page=${page}`;
+            } else if (containerSelector.includes('othersProfile')) {
+                // Ambil username dari URL atau dari elemen di halaman
+                const username = document.querySelector('[data-username]')?.getAttribute('data-username');
+                if (username) {
+                    url = `/user/${username}?page=${page}`;
+                } else {
+                    console.error('Username not found');
+                    return;
+                }
             } else {
-                console.error('Username not found');
+                console.error('Invalid container selector');
                 return;
             }
-        } else {
-            console.error('Invalid container selector');
-            return;
-        }
 
             // Tambahkan loading indicator
             const loadingIndicator = createLoadingIndicator();
@@ -134,6 +161,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.html || data.html.trim() === '') {
                     hasMorePhotos = false;
                     console.log('No more photos to load');
+
+                    // Tambahkan pesan "Tidak ada foto lagi"
+                    const endMessage = document.createElement('div');
+                    endMessage.id = 'no-more-photos';
+                    endMessage.classList.add(
+                        'masonry-end-message',
+                        'w-full',
+                        'text-center',
+                        'text-gray-500',
+                        'py-4',
+                        'text-xl',
+                        'font-semibold',
+                        'mb-4',    // Add margin to avoid overlap with the content above
+                    );
+                    endMessage.textContent = 'Tidak ada foto lagi';
+
+                    // Append to the container (outside of the photo items)
+                    const photoContainer = document.querySelector('.masonry-container');
+                    photoContainer.appendChild(endMessage);
                     return;
                 }
 
@@ -161,9 +207,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Tambahkan pesan jika sudah halaman terakhir
                     const endMessage = document.createElement('div');
-                    endMessage.classList.add('w-full', 'text-center', 'text-gray-500', 'py-4');
+                    endMessage.id = 'no-more-photos';
+                    endMessage.classList.add(
+                        'masonry-end-message',
+                        'w-full',
+                        'text-center',
+                        'text-gray-500',
+                        'py-4',
+                        'text-xl',
+                        'font-semibold',
+                        'mb-4',
+                    );
                     endMessage.textContent = 'Tidak ada foto lagi';
                     photoContainer.appendChild(endMessage);
+                }
+
+                // Reinitialize Masonry layout jika Anda menggunakan library Masonry
+                if (window.msnry) {
+                    window.msnry.reloadItems();
+                    window.msnry.layout();
                 }
 
                 lazyLoadImages();
@@ -180,7 +242,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Tambahkan pesan error
                 const errorMessage = document.createElement('div');
-                errorMessage.classList.add('w-full', 'text-center', 'text-red-500', 'py-4');
+                errorMessage.id = 'error-message';
+                errorMessage.classList.add(
+                    'masonry-error-message',
+                    'w-full',
+                    'text-center',
+                    'text-red-500',
+                    'py-4',
+                    'absolute',
+                    'left-0',
+                    'right-0'
+                );
                 errorMessage.textContent = 'Gagal memuat foto. Silakan coba lagi.';
                 photoContainer.appendChild(errorMessage);
 
@@ -203,12 +275,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Setup infinite scroll untuk berbagai halaman
-    setupInfiniteScrollForContainer('#explorePhotoContainer');
-    setupInfiniteScrollForContainer('#profilePhotoContainer');
-    setupInfiniteScrollForContainer('#indexPhotoContainer');
-    setupInfiniteScrollForContainer('#othersProfilePhotoContainer');
+    setupMasonryInfiniteScroll('#explorePhotoContainer');
+    setupMasonryInfiniteScroll('#profilePhotoContainer');
+    setupMasonryInfiniteScroll('#indexPhotoContainer');
+    setupMasonryInfiniteScroll('#othersProfilePhotoContainer');
+    // Expose setupMasonryInfiniteScroll globally
+    window.setupMasonryInfiniteScroll = setupMasonryInfiniteScroll;
 });
-
 
 // kompres foto
 let currentFileInput = null;
@@ -332,3 +405,15 @@ async function compressImage(file) {
         reader.readAsDataURL(file);
     });
 }
+
+// service worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then((registration) => {
+            console.log('Service Worker registered with scope:', registration.scope);
+        }).catch((error) => {
+            console.error('Service Worker registration failed:', error);
+        });
+    });
+}
+

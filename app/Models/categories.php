@@ -21,6 +21,11 @@ class categories extends Model
         return $this->hasMany(photo_category::class);
     }
 
+    public function photos()
+    {
+        return $this->belongsToMany(Photos::class, 'photo_categories', 'category_id', 'photo_id');
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

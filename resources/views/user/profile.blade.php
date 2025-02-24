@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>{{ $user->username }}'s Profile</title>
+    <link rel="icon" href="/storage/galerizzicon.png" type="image/png" sizes="16x16">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://unpkg.com/boxicons@2.1.4/dist/boxicons.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700">
@@ -45,7 +46,7 @@
                 <!-- Stats -->
                 <div class="flex gap-6 mb-4">
                     <div>
-                        <span class="font-medium">{{ $photos->count() }}</span> kiriman
+                        <span class="font-medium">{{ $photos->total() }}</span> kiriman
                     </div>
                     <div>
                         <span class="font-medium">{{ $albums->count() }}</span> Album
@@ -88,11 +89,11 @@
     <div id="albumSection" class="max-w-screen-xl mx-auto p-4 hidden">
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
             @forelse ($albums as $album)
-                <div class="bg-gray-100 rounded-lg shadow-md overflow-hidden">
+                <div class="bg-gray-100 rounded-lg shadow-md overflow-hidden relative group">
                     <a href="{{ route('album.details', $album->album_id) }}">
                         @if ($album->cover)
                             <img src="{{ asset('storage/' . $album->cover) }}" alt="{{ $album->title }}"
-                                class="w-full h-48 object-cover hover:brightness-75 ease-in-out duration-200">
+                                class="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105 group-hover:brightness-75">
                         @else
                             <div class="w-full h-48 bg-gray-300 flex items-center justify-center">
                                 <span class="text-gray-500">No Cover</span>
@@ -103,6 +104,38 @@
                             <p class="text-sm text-gray-600 mt-2">{{ $album->description }}</p>
                         </div>
                     </a>
+
+                    <!-- Three-dot Menu -->
+                    <div class="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="relative">
+                            <button onclick="toggleAlbumMenu({{ $album->album_id }})"
+                                class="pt-1 px-2 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-70 transition">
+                                <i class='bx bx-dots-horizontal-rounded text-xl'></i>
+                            </button>
+
+                            <!-- Dropdown Menu -->
+                            <div id="albumMenu{{ $album->album_id }}"
+                                class="hidden absolute right-0 mt-1 w-48 rounded-lg bg-white shadow-lg py-1 text-sm text-gray-700">
+                                <a href="{{ route('albums.edit', $album->album_id) }}"
+                                    class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                                    <i class='bx bx-edit mr-2'></i> Edit Album
+                                </a>
+
+                                <!-- Add trash option -->
+                                <form action="{{ route('albums.trash', $album->album_id) }}" method="POST"
+                                    class="block">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                        class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center"
+                                        onclick="return confirm('Apakah Anda yakin ingin memindahkan album ini ke trash?');">
+                                        <i class='bx bx-trash mr-2'></i> Pindahkan ke Trash
+                                    </button>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
                 </div>
             @empty
                 <div class="col-span-full flex flex-col items-center justify-center py-12">
@@ -221,6 +254,40 @@
                 // Tutup dropdown jika klik di luar dropdown
                 if (!dropdown.contains(event.target) &&
                     !event.target.closest('[id^="photo-menu-"]')) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+
+    <script>
+        function toggleAlbumMenu(albumId) {
+            const dropdown = document.getElementById(`albumMenu${albumId}`);
+
+            // Toggle dropdown with more specificity
+            const isHidden = dropdown.classList.contains('hidden');
+
+            // Close all dropdowns first
+            document.querySelectorAll('[id^="albumMenu"]').forEach(el => {
+                el.classList.add('hidden');
+            });
+
+            // Open the selected dropdown if it was previously hidden
+            if (isHidden) {
+                dropdown.classList.remove('hidden');
+            }
+
+            // Prevent event bubbling
+            event.stopPropagation();
+        }
+
+        // Add global event listener to close dropdowns
+        document.addEventListener('click', function(event) {
+            const dropdowns = document.querySelectorAll('[id^="albumMenu"]');
+            dropdowns.forEach(dropdown => {
+                // Close dropdown if click is outside
+                if (!dropdown.contains(event.target) &&
+                    !event.target.closest('[id^="albumMenu"]')) {
                     dropdown.classList.add('hidden');
                 }
             });

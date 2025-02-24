@@ -6,17 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up()
     {
-        Schema::table('photos', function (Blueprint $table) {
-            $table->softDeletes();
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('remember_token')->nullable();
         });
     }
 
     public function down()
     {
-        Schema::table('photos', function (Blueprint $table) {
-            $table->dropSoftDeletes();
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('remember_token');
         });
     }
 };

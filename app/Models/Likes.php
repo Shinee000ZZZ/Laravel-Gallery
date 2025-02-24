@@ -7,23 +7,30 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Likes extends Model
 {
-
     protected $primaryKey = 'like_id';
+
+    protected $table = 'likes';
 
     protected $fillable = [
         'like_id',
-        'created_at',
         'photo_id',
         'user_id',
+        'created_at',
+        'updated_at'
     ];
 
-    public function users(): BelongsTo
+    public static function getLikesForPhoto($photoId)
     {
-        return $this->belongsTo(User::class);
+        return self::where('photo_id', $photoId)->get();
     }
 
-    public function photos(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Photos::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
+
+    public function photo(): BelongsTo
+    {
+        return $this->belongsTo(Photos::class, 'photo_id', 'photo_id');
     }
 }

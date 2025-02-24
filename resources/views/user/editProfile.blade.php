@@ -7,6 +7,7 @@
 <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 <script src="https://unpkg.com/boxicons@2.1.4/dist/boxicons.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700">
+<link rel="icon" href="/storage/galerizzicon.png" type="image/png" sizes="16x16">
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 <title>Home</title>
 </head>

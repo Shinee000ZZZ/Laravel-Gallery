@@ -7,6 +7,7 @@
     <title>{{ $album->title }} - Album Details</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="icon" href="/storage/galerizzicon.png" type="image/png" sizes="16x16">
     <script src="https://unpkg.com/boxicons@2.1.4/dist/boxicons.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700">
 
@@ -91,6 +92,21 @@
                                 <!-- Dropdown Menu -->
                                 <div id="photoMenu{{ $photo->photo_id }}"
                                     class="hidden absolute right-0 mt-1 w-48 rounded-lg bg-white shadow-lg py-1 text-sm text-gray-700">
+                                    <a href="{{ route('photos.edit', $photo->photo_id) }}"
+                                        class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                                        <i class='bx bx-edit mr-2'></i> Edit Foto
+                                    </a>
+                                    <form
+                                        action="{{ route('photos.trash', ['album' => $album->album_id, 'photo' => $photo->photo_id]) }}"
+                                        method="POST" class="w-full">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                            class="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center">
+                                            <i class='bx bx-trash text-red-500 mr-2'></i>
+                                            Buang ke sampah
+                                        </button>
+                                    </form>
                                     <form
                                         action="{{ route('album.removePhoto', ['album' => $album->album_id, 'photo' => $photo->photo_id]) }}"
                                         method="POST" class="w-full">
@@ -205,9 +221,9 @@
                             </div>
 
                             <label class="block mb-2 text-sm font-medium text-gray-700">Tambah Kategori Baru</label>
-                            <input type="text" name="categories[]" placeholder="Kategori Baru (Pisahkan dengan koma)"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg
-                        focus:ring-2 focus:ring-blue-500 transition">
+                            <input type="text" name="newCategory"
+                                placeholder="Kategori Baru (Pisahkan dengan koma)"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition">
                         </div>
 
                         <!-- Description -->

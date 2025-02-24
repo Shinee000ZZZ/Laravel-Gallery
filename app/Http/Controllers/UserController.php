@@ -5,13 +5,15 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Image;
+use illuminate\Support\Facades\Image;
 use Illuminate\Support\Facades\Str;
 use App\Models\User;
+use App\Models\UserActivity;
 use App\Models\Likes;
 use App\Models\Photos;
 use App\Models\categories;
 use App\Models\Comments;
+use Illuminate\Support\Facades\DB;
 use App\Models\photo_category;
 use App\Models\Albums;
 use Illuminate\Http\Request;
@@ -23,9 +25,23 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        $photos = Photos::with('user')
-            ->oldest()
-            ->paginate(8);
+        $query = $request->input('search');
+
+        $photosQuery = Photos::with(['user', 'categories']);
+
+        if ($query) {
+            $photosQuery->where(function ($q) use ($query) {
+                $q->where('title', 'LIKE', "%{$query}%")
+                    ->orWhereHas('categories', function ($categoryQuery) use ($query) {
+                        $categoryQuery->where('name', 'LIKE', "%{$query}%");
+                    })
+                    ->orWhereHas('user', function ($userQuery) use ($query) {
+                        $userQuery->where('username', 'LIKE', "%{$query}%");
+                    });
+            });
+        }
+
+        $photos = $photosQuery->latest()->paginate(8);
 
         // Pastikan ini adalah request AJAX
         if ($request->ajax() || $request->wantsJson()) {
@@ -38,13 +54,69 @@ class UserController extends Controller
         }
 
         $user = Auth::user();
-        return view('user.index', compact('user', 'photos'));
+        return view('user.index', compact('user', 'photos', 'query'));
+    }
+
+    public function searchSuggestions(Request $request)
+    {
+        $query = $request->input('query');
+
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        // Cari di berbagai kategori
+        $suggestions = collect();
+
+        // Cari berdasarkan judul foto
+        $photoTitles = Photos::where('title', 'LIKE', "%{$query}%")
+            ->limit(3)
+            ->pluck('title')
+            ->map(function ($title) {
+                return [
+                    'type' => 'title',
+                    'value' => $title,
+                    'label' => $title,
+                    'icon' => 'bx-search'
+                ];
+            });
+
+        // Cari berdasarkan username
+        $usernames = User::where('username', 'LIKE', "%{$query}%")
+            ->limit(3)
+            ->pluck('username')
+            ->map(function ($username) {
+                return [
+                    'type' => 'username',
+                    'value' => $username,
+                    'label' => $username,
+                    'icon' => 'bx-search'
+                ];
+            });
+
+        // Cari berdasarkan kategori
+        $categories = Categories::where('name', 'LIKE', "%{$query}%")
+            ->limit(3)
+            ->pluck('name')
+            ->map(function ($category) {
+                return [
+                    'type' => 'category',
+                    'value' => $category,
+                    'label' => $category,
+                    'icon' => 'bx-search'
+                ];
+            });
+
+        // Gabungkan semua suggestions
+        $suggestions = $photoTitles->merge($usernames)->merge($categories)->unique('value')->take(6);
+
+        return response()->json($suggestions);
     }
 
     public function editProfile()
     {
         return view('user.editProfile', [
-            'user' => auth()->user()
+            'user' => Auth::user()
         ]);
     }
 
@@ -154,9 +226,66 @@ class UserController extends Controller
     public function trashedPhotos()
     {
         $user = Auth::user();
+
         $trashedPhotos = Photos::onlyTrashed()->get();
 
-        return view('user.trashedPhotos', compact('trashedPhotos', 'user'));
+        $trashedAlbums = Albums::onlyTrashed()->get();
+
+        return view('user.trashedPhotos', compact('trashedPhotos', 'trashedAlbums',  'user'));
+    }
+
+    public function trashAlbum(Albums $album)
+    {
+        // Soft delete album
+        $album->delete();
+
+        return redirect()->route('profile')->with([
+            'success' => 'Album dipindahkan ke trash',
+            'albumSection' => true
+        ]);
+    }
+
+    public function restoreAlbum($album_id)
+    {
+        // Temukan album yang sudah dihapus sementara
+        $album = Albums::withTrashed()
+            ->where('user_id', Auth::id())
+            ->findOrFail($album_id);
+
+        // Kembalikan album
+        $album->restore();
+
+        return redirect()->route('profile')->with([
+            'success' => 'Album dikembalikan',
+            'albumSection' => true
+        ]);
+    }
+
+    /**
+     * Hapus permanen album dari trash
+     */
+    public function forceDeleteAlbum($album_id)
+    {
+        // Temukan album yang sudah dihapus sementara
+        $album = Albums::withTrashed()
+            ->where('user_id', Auth::id())
+            ->findOrFail($album_id);
+
+        // Hapus cover album dari storage jika ada
+        if ($album->cover && Storage::exists($album->cover)) {
+            Storage::delete($album->cover);
+        }
+
+        // Hapus semua foto di dalam album
+        $album->photos()->forceDelete();
+
+        // Hapus permanen album
+        $album->forceDelete();
+
+        return redirect()->route('profile')->with([
+            'success' => 'Album dikembalikan',
+            'albumSection' => true
+        ]);
     }
 
     public function show($photo_id)
@@ -197,13 +326,29 @@ class UserController extends Controller
         return view('user.othersProfile', compact('profileUser', 'user', 'photos'));
     }
 
-    public function explore(Request $request)
+    public function explore(Request $request, $selectedPhotoId = null)
     {
-        $photos = Photos::with('user')
-            ->oldest() // Atau sesuaikan dengan kebutuhan sorting
-            ->paginate(8); // Gunakan pagination
+        $photos = Photos::with(['user', 'categories', 'comments', 'likes.user'])
+            ->oldest()
+            ->paginate(8);
 
-        // Pastikan ini adalah request AJAX
+        $selectedPhoto = null;
+        $totalLikes = 0;
+        $lastLikeUser = null;
+
+        // Hanya proses $selectedPhoto jika ada parameter photoId
+        if ($selectedPhotoId) {
+            $selectedPhoto = Photos::with(['user', 'comments.user', 'likes.user'])
+                ->find($selectedPhotoId);
+
+            if ($selectedPhoto) {
+                $totalLikes = $selectedPhoto->likes->count();
+                $lastLikeUser = $selectedPhoto->likes->last()
+                    ? $selectedPhoto->likes->last()->user
+                    : null;
+            }
+        }
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'html' => view('partials.explore-photo-grid', compact('photos'))->render(),
@@ -213,7 +358,21 @@ class UserController extends Controller
             ]);
         }
 
-        return view('jelajah', compact('photos'));
+        return view('jelajah', compact('photos', 'selectedPhoto', 'lastLikeUser', 'totalLikes'));
+    }
+
+    public function photoDetail($photoId)
+    {
+        $photos = Photos::with(['user', 'categories', 'comments', 'likes.user'])
+            ->oldest()
+            ->paginate(8);
+
+        $selectedPhoto = Photos::with(['user', 'comments.user', 'likes.user'])->findOrFail($photoId);
+
+        $lastLikeUser = $selectedPhoto->likes->last()->user ?? null;
+        $totalLikes = $selectedPhoto->likes->count();
+
+        return view('jelajah', compact('photos', 'selectedPhoto', 'lastLikeUser', 'totalLikes'));
     }
 
     public function profile(Request $request)
@@ -235,6 +394,93 @@ class UserController extends Controller
         }
 
         return view('user.profile', compact('user', 'photos', 'albums'));
+    }
+
+    public function editPhoto($photoId)
+    {
+        $photo = Photos::where('user_id', Auth::id())
+            ->where('photo_id', $photoId)
+            ->firstOrFail();
+
+        $albums = Albums::where('user_id', Auth::id())->get();
+
+        // Get all categories available
+        $categories = Categories::all();
+
+        $user = Auth::user();
+
+        return view('user.editPhoto', compact('photo', 'albums', 'user', 'categories'));
+    }
+
+    public function updatePhoto(Request $request, $photoId)
+    {
+        // Tambahkan debugging
+        \Log::info('Request Data:', $request->all());
+
+        $validatedData = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'album_id' => 'nullable|exists:albums,album_id',
+            'categories' => 'nullable|array', // Array of existing category ids
+            'categories.*' => 'exists:categories,id',
+            'newCategories' => 'nullable|string', // String input for new categories
+        ]);
+
+        $photo = Photos::where('user_id', Auth::id())
+            ->where('photo_id', $photoId)
+            ->firstOrFail();
+
+        $updateData = [
+            'title' => $validatedData['title'] ?? $photo->title,
+            'description' => $validatedData['description'] ?? $photo->description,
+        ];
+
+        // Update album
+        $updateData['album_id'] = $validatedData['album_id'] ?? null;
+
+        // Update photo details
+        $photo->update($updateData);
+
+        // Handle existing categories
+        if (isset($validatedData['categories'])) {
+            $photo->categories()->sync($validatedData['categories']);
+        }
+
+        // Handle new categories
+        if (isset($validatedData['newCategories']) && !empty($validatedData['newCategories'])) {
+            // Debugging log
+            \Log::info('New Categories Input: ' . $validatedData['newCategories']);
+
+            // Split categories, trim whitespace, remove empty values
+            $newCategories = array_filter(array_map('trim', explode(',', $validatedData['newCategories'])));
+
+            \Log::info('Processed New Categories:', $newCategories);
+
+            foreach ($newCategories as $newCategoryName) {
+                // Skip if category name is empty
+                if (empty($newCategoryName)) continue;
+
+                // Check if category already exists (case-insensitive)
+                $existingCategory = Categories::where('name', 'LIKE', $newCategoryName)->first();
+
+                if (!$existingCategory) {
+                    // Create new category if it doesn't exist
+                    $category = Categories::create(['name' => $newCategoryName]);
+                    \Log::info('Created New Category: ' . $newCategoryName);
+                } else {
+                    $category = $existingCategory;
+                    \Log::info('Found Existing Category: ' . $newCategoryName);
+                }
+
+                // Attach category to photo if not already attached
+                if (!$photo->categories->contains($category->id)) {
+                    $photo->categories()->attach($category->id);
+                    \Log::info('Attached Category to Photo: ' . $category->name);
+                }
+            }
+        }
+
+        return redirect()->route('photos.show', $photo->photo_id)->with('success', 'Foto berhasil diperbarui');
     }
 
     public function removePhoto(Request $request, $album_id, $photo_id)
@@ -348,7 +594,70 @@ class UserController extends Controller
         ]);
         $photo->save();
 
-        // Proses kategori (kode sebelumnya)
+        // Proses kategori
+        $user = auth()->user();
+        $categoryIds = [];
+
+        // Proses kategori yang sudah ada
+        $existingCategories = $request->input('categories', []);
+        if (!empty($existingCategories)) {
+            foreach ($existingCategories as $categoryName) {
+                if (!empty(trim($categoryName))) {
+                    $category = Categories::firstOrCreate(
+                        [
+                            'name' => trim($categoryName),
+                            'user_id' => $user->user_id
+                        ],
+                        [
+                            'description' => null,
+                            'created_at' => now()
+                        ]
+                    );
+                    $categoryIds[] = $category->id;
+                }
+            }
+        }
+
+        // Proses kategori baru yang diinput manual
+        if ($request->has('newCategory') && !empty($request->input('newCategory'))) {
+            // Pecah kategori berdasarkan koma, kemudian trim setiap elemen untuk menghapus spasi yang tidak perlu
+            $newCategories = array_map('trim', explode(',', $request->input('newCategory')));
+
+            foreach ($newCategories as $newCategory) {
+                if (!empty($newCategory)) {
+                    $category = Categories::firstOrCreate(
+                        [
+                            'name' => $newCategory,
+                            'user_id' => $user->user_id
+                        ],
+                        [
+                            'description' => null,
+                            'created_at' => now()
+                        ]
+                    );
+                    $categoryIds[] = $category->id;
+                }
+            }
+        }
+
+        // Attach kategori ke foto
+        if (!empty($categoryIds)) {
+            $insertData = [];
+            foreach ($categoryIds as $categoryId) {
+                if ($categoryId) {
+                    $insertData[] = [
+                        'photo_id' => $photo->photo_id,
+                        'category_id' => $categoryId,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ];
+                }
+            }
+
+            if (!empty($insertData)) {
+                DB::table('photo_categories')->insert($insertData);
+            }
+        }
 
         return redirect()->back()->with('success', 'Foto berhasil ditambahkan ke album');
     }
@@ -385,7 +694,7 @@ class UserController extends Controller
 
             Albums::create([
                 'title' => $request->title,
-                'description' => $request->description,
+                'description' => $request->description ?? null,
                 'cover' => $cover,
                 'user_id' => Auth::id(),
             ]);
@@ -395,6 +704,50 @@ class UserController extends Controller
             Log::error('Error saat menyimpan album: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Gagal menambahkan album!');
         }
+    }
+
+    public function editAlbum($albumId)
+    {
+        $album = Albums::where('user_id', Auth::id())
+            ->where('album_id', $albumId)
+            ->firstOrFail();
+
+        $user = Auth::user();
+
+        return view('user.editAlbum', compact('album', 'user'));
+    }
+
+    public function updateAlbum(Request $request, $albumId)
+    {
+        $album = Albums::where('user_id', Auth::id())
+            ->where('album_id', $albumId)
+            ->firstOrFail();
+
+        $validatedData = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'cover' => 'nullable|image|max:5120' // 5MB max
+        ]);
+
+        // Update album details
+        $album->title = $validatedData['title'];
+        $album->description = $validatedData['description'] ?? $album->description;
+
+        // Handle cover image upload
+        if ($request->hasFile('cover')) {
+            // Delete old cover if exists
+            if ($album->cover) {
+                Storage::delete('public/' . $album->cover);
+            }
+
+            // Store new cover
+            $coverPath = $request->file('cover')->store('album_covers', 'public');
+            $album->cover = $coverPath;
+        }
+
+        $album->save();
+
+        return redirect()->route('profile')->with('success', 'Album berhasil diperbarui');
     }
 
     public function store(Request $request)
@@ -431,9 +784,71 @@ class UserController extends Controller
             'album_id' => $request->album_id ?? null,
         ]);
 
-        // Proses kategori (kode sebelumnya)
+        // Proses kategori
+        $user = auth()->user();
+        $categoryIds = [];
 
-        return redirect('/index-user')->with('success', 'Foto berhasil diunggah!');
+        // Proses kategori yang sudah ada
+        $existingCategories = $request->input('categories', []);
+        if (!empty($existingCategories)) {
+            foreach ($existingCategories as $categoryName) {
+                if (!empty(trim($categoryName))) {
+                    $category = Categories::firstOrCreate(
+                        [
+                            'name' => trim($categoryName),
+                            'user_id' => $user->user_id
+                        ],
+                        [
+                            'description' => null,
+                            'created_at' => now()
+                        ]
+                    );
+                    $categoryIds[] = $category->id;
+                }
+            }
+        }
+
+        if ($request->has('newCategory') && !empty($request->input('newCategory'))) {
+            // Pecah kategori berdasarkan koma, kemudian trim setiap elemen untuk menghapus spasi yang tidak perlu
+            $newCategories = array_map('trim', explode(',', $request->input('newCategory')));
+
+            foreach ($newCategories as $newCategory) {
+                if (!empty($newCategory)) {
+                    $category = Categories::firstOrCreate(
+                        [
+                            'name' => $newCategory,  // Gunakan langsung $newCategory yang sudah di-trim
+                            'user_id' => $user->user_id
+                        ],
+                        [
+                            'description' => null,
+                            'created_at' => now()
+                        ]
+                    );
+                    $categoryIds[] = $category->id;
+                }
+            }
+        }
+
+        // Attach kategori ke foto
+        if (!empty($categoryIds)) {
+            $insertData = [];
+            foreach ($categoryIds as $categoryId) {
+                if ($categoryId) {
+                    $insertData[] = [
+                        'photo_id' => $photo->photo_id,
+                        'category_id' => $categoryId,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ];
+                }
+            }
+
+            if (!empty($insertData)) {
+                DB::table('photo_categories')->insert($insertData);
+            }
+        }
+
+        return redirect('/profile')->with('success', 'Foto berhasil diunggah!');
     }
 
     public function storeComment(Request $request)
@@ -443,13 +858,119 @@ class UserController extends Controller
             'comment_text' => 'required|string|max:500'
         ]);
 
-        Comments::create([
+        // Ambil foto untuk mendapatkan judul
+        $photo = Photos::findOrFail($request->photo_id);
+
+        $comment = Comments::create([
             'photo_id' => $request->photo_id,
             'user_id' => auth()->id(),
             'comment_text' => $request->comment_text
         ]);
 
-        return back()->with('success', 'Comment added successfully');
+        // Log comment activity
+        UserActivity::create([
+            'user_id' => auth()->user()->user_id, // Gunakan user_id
+            'activity_type' => 'comment',
+            'description' => 'User added a comment',
+            'details' => json_encode([
+                'photo_id' => $request->photo_id,
+                'photo_title' => $photo->title,
+                'comment_id' => $comment->id,
+                'comment_preview' => substr($request->comment_text, 0, 50)
+            ]),
+            'ip_address' => $request->ip()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'comment' => $comment
+        ]);
+    }
+
+    // Update comment
+    public function updateComment(Request $request, $commentId)
+    {
+        $request->validate([
+            'comment_text' => 'required|string|max:500'
+        ]);
+
+        $comment = Comments::findOrFail($commentId);
+
+        // Verifikasi pemilik komentar
+        if ($comment->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        // Simpan komentar lama untuk log
+        $oldCommentText = $comment->comment_text;
+
+        // Update komentar
+        $comment->comment_text = $request->comment_text;
+        $comment->save();
+
+        // Ambil foto untuk mendapatkan judul
+        $photo = Photos::findOrFail($comment->photo_id);
+
+        // Log comment update activity
+        UserActivity::create([
+            'user_id' => auth()->user()->user_id,
+            'activity_type' => 'comment_update',
+            'description' => 'User updated a comment',
+            'details' => json_encode([
+                'photo_id' => $comment->photo_id,
+                'photo_title' => $photo->title,
+                'comment_id' => $comment->id,
+                'old_comment_preview' => substr($oldCommentText, 0, 50),
+                'new_comment_preview' => substr($request->comment_text, 0, 50)
+            ]),
+            'ip_address' => $request->ip()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'comment' => $comment
+        ]);
+    }
+
+    // Delete comment
+    public function deleteComment($commentId)
+    {
+        $comment = Comments::findOrFail($commentId);
+
+        // Verifikasi pemilik komentar
+        if ($comment->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        // Ambil foto untuk mendapatkan judul sebelum menghapus
+        $photo = Photos::findOrFail($comment->photo_id);
+
+        // Log comment deletion activity sebelum menghapus
+        UserActivity::create([
+            'user_id' => auth()->user()->user_id,
+            'activity_type' => 'comment_delete',
+            'description' => 'User deleted a comment',
+            'details' => json_encode([
+                'photo_id' => $comment->photo_id,
+                'photo_title' => $photo->title,
+                'comment_id' => $comment->id,
+                'comment_preview' => substr($comment->comment_text, 0, 50)
+            ]),
+            'ip_address' => request()->ip()
+        ]);
+
+        // Hapus komentar
+        $comment->delete();
+
+        return response()->json([
+            'success' => true
+        ]);
     }
 
     public function toggleLike($photoId)
@@ -465,6 +986,18 @@ class UserController extends Controller
             // Explicitly delete the like
             $existingLike->delete();
             $liked = false;
+
+            // Log unlike activity
+            UserActivity::create([
+                'user_id' => $user->user_id,
+                'activity_type' => 'unlike',
+                'description' => 'User unliked a photo',
+                'details' => json_encode([
+                    'photo_id' => $photoId,
+                    'photo_title' => $photo->title
+                ]),
+                'ip_address' => request()->ip()
+            ]);
         } else {
             // If not liked, create a new like
             Likes::create([
@@ -472,6 +1005,18 @@ class UserController extends Controller
                 'user_id' => $user->user_id
             ]);
             $liked = true;
+
+            // Log like activity
+            UserActivity::create([
+                'user_id' => $user->user_id,
+                'activity_type' => 'like',
+                'description' => 'User liked a photo',
+                'details' => json_encode([
+                    'photo_id' => $photoId,
+                    'photo_title' => $photo->title
+                ]),
+                'ip_address' => request()->ip()
+            ]);
         }
 
         return response()->json([

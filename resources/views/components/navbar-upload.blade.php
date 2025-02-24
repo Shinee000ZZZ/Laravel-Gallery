@@ -2,10 +2,14 @@
 <nav class="bg-white border-gray-200 dark:bg-gray-900">
     <div class="max-w-screen-xl mx-auto p-4">
         <div class="flex justify-between items-center">
-            <a href="{{ Route('user.index') }}" class="group flex items-center space-x-3 rtl:space-x-reverse">
+            @if(Auth::user()->acess_level === 'admin')
+                <a href="{{ Route('admin.dashboard') }}" class="group flex items-center space-x-3 rtl:space-x-reverse">
+            @else
+                <a href="{{ Route('user.index') }}" class="group flex items-center space-x-3 rtl:space-x-reverse">
+            @endif
                 <img src="/storage/galerizzicon.png" class="h-8" alt="galerizz Logo" />
                 <span class="self-center text-2xl font-bold whitespace-nowrap text-black">Gale<span
-                        class="group-hover:text-blue-400 transition-colors duration-200 ease-in-out">rizz</span></span>
+                        class="group-hover:text-blue-600 transition-colors duration-200 ease-in-out">rizz</span></span>
             </a>
 
             <div class="flex items-center space-x-3 md:order-2">
@@ -15,7 +19,7 @@
                     id="user-menu-button" aria-expanded="false" data-dropdown-toggle="user-dropdown"
                     data-dropdown-placement="bottom">
                     <span class="sr-only">Open user menu</span>
-                    <img class="w-8 h-8 rounded-full" src=" {{ asset('storage/' . $user->profile_photo) }}"
+                    <img class="w-8 h-8 rounded-full" src="{{ asset('storage/' . $user->profile_photo) }}"
                         alt="user photo">
                 </button>
 
@@ -27,10 +31,17 @@
                         <span class="block text-sm text-gray-500 truncate dark:text-gray-400">{{ $user->email }}</span>
                     </div>
                     <ul class="py-2" aria-labelledby="user-menu-button">
-                        <li>
-                            <a href="{{ Route('profile') }}"
-                                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Profile</a>
-                        </li>
+                        @if(Auth::user()->acess_level === 'admin')
+                            <li>
+                                <a href="{{ Route('admin.profile') }}"
+                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Profile</a>
+                            </li>
+                        @else
+                            <li>
+                                <a href="{{ Route('profile') }}"
+                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Profile</a>
+                            </li>
+                        @endif
                         <li>
                             <a href="{{ route('logout') }}"
                                 class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">Sign

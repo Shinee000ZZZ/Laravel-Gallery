@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,6 +12,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Photos extends Model
 {
+
+    use HasFactory;
+
     use SoftDeletes;
 
     protected $primaryKey = 'photo_id';
@@ -41,7 +45,7 @@ class Photos extends Model
 
     public function comments(): HasMany
     {
-        return $this->hasMany(Comments::class, 'photo_id');
+        return $this->hasMany(Comments::class, 'photo_id')->orderBy('created_at', 'asc', 'photo_id');
     }
 
     public function photo_category(): HasMany
@@ -56,7 +60,7 @@ class Photos extends Model
 
     public function likes()
     {
-        return $this->hasMany(Likes::class, 'photo_id');
+        return $this->hasMany(Likes::class, 'photo_id', 'photo_id');
     }
 
     public function isLikedByUser($userId)

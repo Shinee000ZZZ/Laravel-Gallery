@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Comments extends Model
 {
+
+    protected $primaryKey = 'comment_id';
+
     protected $fillable = [
         'comment_id',
         'comment_text',
